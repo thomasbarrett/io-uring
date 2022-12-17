@@ -1471,3 +1471,32 @@ opcode!(
         Entry(sqe)
     }
 );
+
+
+#[cfg(feature = "unstable")]
+opcode!(
+    /// A file/device-specific 32-byte command, akin (but not equivalent) to `ioctl(2)`.
+    pub struct UringCmd32 {
+        fd: { impl sealed::UseFixed },
+        cmd_op: { u32 },
+        ;;
+        /// Arbitrary command data.
+        cmd: [u8; 32] = [0u8; 32]
+    }
+
+    pub const CODE = sys::IORING_OP_URING_CMD;
+
+    pub fn build(self) -> Entry128 {
+        let UringCmd32 { fd, cmd_op, cmd } = self;
+
+        let cmd1 = cmd[..16].try_into().unwrap();
+        let cmd2 = cmd[16..].try_into().unwrap();
+
+        let mut sqe = sqe_zeroed();
+        sqe.opcode = Self::CODE;
+        assign_fd!(sqe.fd = fd);
+        sqe.__bindgen_anon_1.__bindgen_anon_1.cmd_op = cmd_op;
+        unsafe { *sqe.__bindgen_anon_6.cmd.as_mut().as_mut_ptr().cast::<[u8; 16]>() = cmd1 };
+        Entry128(Entry(sqe), cmd2)
+    }
+);
